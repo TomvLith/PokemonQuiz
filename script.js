@@ -62,15 +62,11 @@ function displayPokemon(data) {
     const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
     currentData.activeQuestionType = chosenType;
 
-    // Set prompt text based on chosen category
+    // Set prompt text based on chosen category (uniform type prompt to prevent spoilers)
     if (chosenType === 'name') {
         promptEl.textContent = "What is the name of this Pokémon?";
     } else if (chosenType === 'type') {
-        if (currentData.types.length > 1) {
-            promptEl.textContent = "This Pokémon has 2 types. Name both (e.g., grass fire):";
-        } else {
-            promptEl.textContent = "What is this Pokémon's type?";
-        }
+        promptEl.textContent = "What is/are this Pokémon's type(s) (e.g., grass fire):";
     } else if (chosenType === 'ability') {
         promptEl.textContent = "Name one of this Pokémon's abilities (regular or hidden):";
     } else if (chosenType === 'generation') {
@@ -155,7 +151,6 @@ function checkAnswer() {
             break;
             
         case 'ability':
-            // Check against both hyphenated API names and space-separated versions
             const validAbilities = currentData.abilities.flatMap(a => [a, a.replace(/-/g, ' ')]);
             if (validAbilities.includes(rawUserVal) || validAbilities.includes(normalizedUserVal)) {
                 isCorrect = true;
@@ -183,9 +178,9 @@ function checkAnswer() {
 
     if (isCorrect) {
         feedbackEl.style.color = 'green';
-        feedbackEl.textContent = `Correct! It was ${currentData.name}.`;
         score++;
         scoreEl.textContent = score;
+        feedbackEl.textContent = `Correct! The answer was: ${displayAnswer}`;
         setTimeout(loadNextRound, 2000);
     } else {
         feedbackEl.style.color = 'red';
