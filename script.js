@@ -4,9 +4,10 @@ const inputEl = document.getElementById('user-input');
 const submitBtn = document.getElementById('submit-btn');
 const feedbackEl = document.getElementById('feedback');
 const scoreEl = document.getElementById('score');
+const leaderboardListEl = document.getElementById('leaderboard-list');
 
 let currentData = {};
-let nextData = null; // Stores the preloaded Pokémon
+let nextData = null;
 let score = 0;
 let isGameActive = false;
 
@@ -22,6 +23,10 @@ const genMap = {
     'generation-viii': '8',
     'generation-ix': '9'
 };
+
+// Load leaderboard on startup
+let highScores = JSON.parse(localStorage.getItem('pokemonQuizHighScores')) || [];
+updateLeaderboardUI();
 
 // Helper: Get a random number between min and max (inclusive)
 function getRandomId(min, max) {
@@ -53,16 +58,13 @@ function displayPokemon(data) {
     inputEl.value = '';
     feedbackEl.textContent = '';
 
-    // Show image
     imgEl.src = currentData.sprite;
     imgEl.style.display = 'inline-block';
 
-    // Pick a random question type
     const questionTypes = ['name', 'type', 'ability', 'generation'];
     const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
     currentData.activeQuestionType = chosenType;
 
-    // Set prompt text based on chosen category (Fixed type prompt to always look uniform)
     if (chosenType === 'name') {
         promptEl.textContent = "What is the name of this Pokémon?";
     } else if (chosenType === 'type') {
@@ -74,8 +76,6 @@ function displayPokemon(data) {
     }
 
     isGameActive = true;
-
-    // Preload the *next* Pokémon in the background
     preloadNextPokemon();
 }
 
@@ -88,7 +88,6 @@ async function preloadNextPokemon() {
     }
 }
 
-// Initial game loader
 async function initGame() {
     promptEl.textContent = "Loading Pokémon...";
     try {
@@ -105,7 +104,6 @@ async function initGame() {
     }
 }
 
-// Transition to the preloaded Pokémon
 function loadNextRound() {
     if (nextData) {
         displayPokemon(nextData);
@@ -114,23 +112,61 @@ function loadNextRound() {
     }
 }
 
+// Handle Game Over / Score Reset and Leaderboard check
+function handleWrongAnswer(displayAnswer) {
+    let finalScore = score;
+    score = 0;
+    scoreEl.textContent = '0';
+
+    if (finalScore > 0) {
+        let playerName = prompt(`Game Over! You scored ${finalScore} points.\nEnter your Trainer Name for the Leaderboard:`, "Trainer");
+        if (!playerName || playerName.trim() === "") {
+            playerName = "Anonymous";
+        } else {
+            playerName = playerName.trim();
+        }
+
+        // Add score and sort top 5
+        highScores.push({ name: playerName, score: finalScore });
+        highScores.sort((a, b) => b.score - a.score);
+        highScores = highScores.slice(0, 5); // Keep top 5
+
+        localStorage.setItem('pokemonQuizHighScores', JSON.stringify(highScores));
+        updateLeaderboardUI();
+    }
+
+    feedbackEl.style.color = 'red';
+    feedbackEl.textContent = `Incorrect! Score reset to 0. Correct answer: ${displayAnswer}`;
+    setTimeout(loadNextRound, 3000);
+}
+
+function updateLeaderboardUI() {
+    leaderboardListEl.innerHTML = '';
+    if (highScores.length === 0) {
+        leaderboardListEl.innerHTML = '<li>No high scores yet!</li>';
+        return;
+    }
+
+    highScores.forEach((entry) => {
+        const li = document.createElement('li');
+        li.textContent = `${entry.name}: ${entry.score} pts`;
+        leaderboardListEl.appendChild(li);
+    });
+}
+
 function checkAnswer() {
     if (!isGameActive) return;
 
-    // Normalize user input (convert dashes to spaces for flexible matching)
     const rawUserVal = inputEl.value.trim().toLowerCase();
 
-    // Check if nothing was written
     if (!rawUserVal) {
         feedbackEl.style.color = 'red';
         feedbackEl.textContent = "You didn't submit an answer!";
         return;
     }
 
-    isGameActive = false; // Prevent double-submitting
+    isGameActive = false;
     let isCorrect = false;
-
-    // Standardized user string with spaces instead of hyphens
     const normalizedUserVal = rawUserVal.replace(/-/g, ' ');
 
     switch (currentData.activeQuestionType) {
@@ -164,7 +200,6 @@ function checkAnswer() {
             break;
     }
 
-    // Format proper display for all possible answers based on the active question type
     let displayAnswer = '';
     if (currentData.activeQuestionType === 'name') {
         displayAnswer = currentData.name.replace(/-/g, ' ');
@@ -183,11 +218,7 @@ function checkAnswer() {
         feedbackEl.textContent = `Correct! Answer: ${displayAnswer}`;
         setTimeout(loadNextRound, 2000);
     } else {
-        feedbackEl.style.color = 'red';
-        score = 0; // Reset score variable
-        scoreEl.textContent = '0'; // Immediately update text in UI
-        feedbackEl.textContent = `Incorrect! Score reset to 0. Correct answer: ${displayAnswer}`;
-        setTimeout(loadNextRound, 3000);
+        handleWrongAnswer(displayAnswer);
     }
 }
 
