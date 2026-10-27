@@ -62,7 +62,7 @@ function displayPokemon(data) {
     const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
     currentData.activeQuestionType = chosenType;
 
-    // Set prompt text based on chosen category
+    // Set prompt text based on chosen category (Fixed type prompt to always look uniform)
     if (chosenType === 'name') {
         promptEl.textContent = "What is the name of this Pokémon?";
     } else if (chosenType === 'type') {
@@ -164,14 +164,13 @@ function checkAnswer() {
             break;
     }
 
-    // Format proper display for all possible answers (with spaces instead of hyphens for abilities)
+    // Format proper display for all possible answers based on the active question type
     let displayAnswer = '';
     if (currentData.activeQuestionType === 'name') {
         displayAnswer = currentData.name.replace(/-/g, ' ');
     } else if (currentData.activeQuestionType === 'type') {
         displayAnswer = currentData.types.join(' and ');
     } else if (currentData.activeQuestionType === 'ability') {
-        // Map all abilities to replace hyphens with spaces so it looks clean
         displayAnswer = currentData.abilities.map(a => a.replace(/-/g, ' ')).join(', ');
     } else if (currentData.activeQuestionType === 'generation') {
         displayAnswer = `Generation ${currentData.generationNum}`;
@@ -181,13 +180,13 @@ function checkAnswer() {
         feedbackEl.style.color = 'green';
         score++;
         scoreEl.textContent = score;
-        feedbackEl.textContent = `Correct! Valid answer(s): ${displayAnswer}`;
+        feedbackEl.textContent = `Correct! Answer: ${displayAnswer}`;
         setTimeout(loadNextRound, 2000);
     } else {
         feedbackEl.style.color = 'red';
         score = 0; // Reset score variable
         scoreEl.textContent = '0'; // Immediately update text in UI
-        feedbackEl.textContent = `Incorrect! Score reset to 0. Valid answer(s): ${displayAnswer}`;
+        feedbackEl.textContent = `Incorrect! Score reset to 0. Correct answer: ${displayAnswer}`;
         setTimeout(loadNextRound, 3000);
     }
 }
