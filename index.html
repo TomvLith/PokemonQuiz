@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Quiz Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="quiz-container">
+        <h1>Pokémon Guessing Quiz</h1>
+        
+        <div id="game-box">
+            <img id="pokemon-img" src="" alt="Loading Pokémon..." style="display:none;">
+            <p id="quiz-prompt">Loading challenge...</p>
+            
+            <input type="text" id="user-input" placeholder="Type your answer here..." autocomplete="off">
+            <button id="submit-btn">Submit</button>
+        </div>
+
+        <p id="feedback"></p>
+        <div class="score-board">Score: <span id="score">0</span></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
