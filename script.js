@@ -67,7 +67,7 @@ function displayPokemon(data) {
         promptEl.textContent = "What is the name of this Pokémon?";
     } else if (chosenType === 'type') {
         if (currentData.types.length > 1) {
-            promptEl.textContent = `Type both types (e.g., ${currentData.types.join(' ')}):`;
+            promptEl.textContent = "This Pokémon has 2 types. Name both (e.g., grass fire):";
         } else {
             promptEl.textContent = "What is this Pokémon's type?";
         }
@@ -79,7 +79,7 @@ function displayPokemon(data) {
 
     isGameActive = true;
 
-    // Preload the *next* Pokémon in the background right after displaying this one
+    // Preload the *next* Pokémon in the background
     preloadNextPokemon();
 }
 
@@ -99,7 +99,6 @@ async function initGame() {
         const randomId1 = getRandomId(1, 1025);
         const randomId2 = getRandomId(1, 1025);
         
-        // Load current and preload next simultaneously for the very first round
         const firstData = await fetchPokemonData(randomId1);
         nextData = await fetchPokemonData(randomId2);
 
@@ -110,12 +109,11 @@ async function initGame() {
     }
 }
 
-// Transition to the preloaded Pokémon instantly
+// Transition to the preloaded Pokémon
 function loadNextRound() {
     if (nextData) {
         displayPokemon(nextData);
     } else {
-        // Fallback just in case background preload failed
         initGame();
     }
 }
@@ -123,25 +121,32 @@ function loadNextRound() {
 function checkAnswer() {
     if (!isGameActive) return;
 
-    const userVal = inputEl.value.trim().toLowerCase();
+    // Normalize user input (convert dashes to spaces for flexible matching)
+    const rawUserVal = inputEl.value.trim().toLowerCase();
 
     // Check if nothing was written
-    if (!userVal) {
+    if (!rawUserVal) {
         feedbackEl.style.color = 'red';
         feedbackEl.textContent = "You didn't submit an answer!";
         return;
     }
 
-    isGameActive = false; // Prevent double-submitting during timeouts
+    isGameActive = false; // Prevent double-submitting
     let isCorrect = false;
+
+    // Standardized user string with spaces instead of hyphens
+    const normalizedUserVal = rawUserVal.replace(/-/g, ' ');
 
     switch (currentData.activeQuestionType) {
         case 'name':
-            if (userVal === currentData.name) isCorrect = true;
+            const normalizedName = currentData.name.replace(/-/g, ' ');
+            if (rawUserVal === currentData.name || normalizedUserVal === normalizedName) {
+                isCorrect = true;
+            }
             break;
             
         case 'type':
-            const userTypes = userVal.split(/[\s,]+/).filter(Boolean);
+            const userTypes = rawUserVal.split(/[\s,]+/).filter(Boolean);
             if (currentData.types.length === userTypes.length && 
                 currentData.types.every(t => userTypes.includes(t)) &&
                 userTypes.every(t => currentData.types.includes(t))) {
@@ -150,11 +155,17 @@ function checkAnswer() {
             break;
             
         case 'ability':
-            if (currentData.abilities.includes(userVal)) isCorrect = true;
+            // Check against both hyphenated API names and space-separated versions
+            const validAbilities = currentData.abilities.flatMap(a => [a, a.replace(/-/g, ' ')]);
+            if (validAbilities.includes(rawUserVal) || validAbilities.includes(normalizedUserVal)) {
+                isCorrect = true;
+            }
             break;
             
         case 'generation':
-            if (userVal === currentData.generationNum) isCorrect = true;
+            if (rawUserVal === currentData.generationNum) {
+                isCorrect = true;
+            }
             break;
     }
 
@@ -178,8 +189,8 @@ function checkAnswer() {
         setTimeout(loadNextRound, 2000);
     } else {
         feedbackEl.style.color = 'red';
-        score = 0; // Reset score on wrong answer
-        scoreEl.textContent = score;
+        score = 0; // Reset score variable
+        scoreEl.textContent = '0'; // Immediately update text in UI
         feedbackEl.textContent = `Incorrect! Score reset to 0. The correct answer was: ${displayAnswer}`;
         setTimeout(loadNextRound, 3000);
     }
@@ -190,7 +201,7 @@ submitBtn.addEventListener('click', checkAnswer);
 
 inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-        e.preventDefault(); // Prevents newlines/form submits
+        e.preventDefault();
         checkAnswer();
     }
 });
