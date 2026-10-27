@@ -62,7 +62,7 @@ function displayPokemon(data) {
     const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
     currentData.activeQuestionType = chosenType;
 
-    // Set prompt text based on chosen category (uniform type prompt to prevent spoilers)
+    // Set prompt text based on chosen category
     if (chosenType === 'name') {
         promptEl.textContent = "What is the name of this Pokémon?";
     } else if (chosenType === 'type') {
@@ -164,14 +164,15 @@ function checkAnswer() {
             break;
     }
 
-    // Format proper display for the correct answer
+    // Format proper display for all possible answers (with spaces instead of hyphens for abilities)
     let displayAnswer = '';
     if (currentData.activeQuestionType === 'name') {
-        displayAnswer = currentData.name;
+        displayAnswer = currentData.name.replace(/-/g, ' ');
     } else if (currentData.activeQuestionType === 'type') {
         displayAnswer = currentData.types.join(' and ');
     } else if (currentData.activeQuestionType === 'ability') {
-        displayAnswer = currentData.abilities.join(', ');
+        // Map all abilities to replace hyphens with spaces so it looks clean
+        displayAnswer = currentData.abilities.map(a => a.replace(/-/g, ' ')).join(', ');
     } else if (currentData.activeQuestionType === 'generation') {
         displayAnswer = `Generation ${currentData.generationNum}`;
     }
@@ -180,13 +181,13 @@ function checkAnswer() {
         feedbackEl.style.color = 'green';
         score++;
         scoreEl.textContent = score;
-        feedbackEl.textContent = `Correct! The answer was: ${displayAnswer}`;
+        feedbackEl.textContent = `Correct! Valid answer(s): ${displayAnswer}`;
         setTimeout(loadNextRound, 2000);
     } else {
         feedbackEl.style.color = 'red';
         score = 0; // Reset score variable
         scoreEl.textContent = '0'; // Immediately update text in UI
-        feedbackEl.textContent = `Incorrect! Score reset to 0. The correct answer was: ${displayAnswer}`;
+        feedbackEl.textContent = `Incorrect! Score reset to 0. Valid answer(s): ${displayAnswer}`;
         setTimeout(loadNextRound, 3000);
     }
 }
