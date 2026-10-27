@@ -6,7 +6,9 @@ const feedbackEl = document.getElementById('feedback');
 const scoreEl = document.getElementById('score');
 
 let currentData = {};
+let nextData = null; // Stores the preloaded Pokémon
 let score = 0;
+let isGameActive = false;
 
 // Map API generation names to simple numbers (1-9)
 const genMap = {
@@ -26,66 +28,112 @@ function getRandomId(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-async function fetchNewPokemon() {
+// Fetch a single Pokémon's data given an ID
+async function fetchPokemonData(id) {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+    const data = await response.json();
+
+    const speciesResponse = await fetch(data.species.url);
+    const speciesData = await speciesResponse.json();
+
+    const apiGenName = speciesData.generation.name;
+    
+    return {
+        name: data.name,
+        types: data.types.map(t => t.type.name),
+        abilities: data.abilities.map(a => a.ability.name),
+        generationNum: genMap[apiGenName] || '1',
+        sprite: data.sprites.front_default
+    };
+}
+
+// Setup the game round using provided data object
+function displayPokemon(data) {
+    currentData = data;
     inputEl.value = '';
     feedbackEl.textContent = '';
-    
-    // Gen 1 to 9 (1 to 1025)
-    const randomId = getRandomId(1, 1025);
 
-    try {
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
-        const data = await response.json();
+    // Show image
+    imgEl.src = currentData.sprite;
+    imgEl.style.display = 'inline-block';
 
-        // Fetch species data for generation info
-        const speciesResponse = await fetch(data.species.url);
-        const speciesData = await speciesResponse.json();
+    // Pick a random question type
+    const questionTypes = ['name', 'type', 'ability', 'generation'];
+    const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+    currentData.activeQuestionType = chosenType;
 
-        // Save current correct data (data.abilities includes hidden abilities automatically)
-        const apiGenName = speciesData.generation.name;
-        currentData = {
-            name: data.name,
-            types: data.types.map(t => t.type.name), // e.g., ["grass", "poison"]
-            abilities: data.abilities.map(a => a.ability.name), // e.g., ["overgrow", "chlorophyll", "solar-power"]
-            generationNum: genMap[apiGenName] || '1',
-            sprite: data.sprites.front_default
-        };
-
-        // Show image
-        imgEl.src = currentData.sprite;
-        imgEl.style.display = 'inline-block';
-
-        // Pick a random question type
-        const questionTypes = ['name', 'type', 'ability', 'generation'];
-        const chosenType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
-        currentData.activeQuestionType = chosenType;
-
-        // Set prompt text based on chosen category
-        if (chosenType === 'name') {
-            promptEl.textContent = "What is the name of this Pokémon?";
-        } else if (chosenType === 'type') {
-            if (currentData.types.length > 1) {
-                promptEl.textContent = `Type both types (e.g., ${currentData.types.join(' ')}):`;
-            } else {
-                promptEl.textContent = "What is this Pokémon's type?";
-            }
-        } else if (chosenType === 'ability') {
-            promptEl.textContent = "Name one of this Pokémon's abilities (regular or hidden):";
-        } else if (chosenType === 'generation') {
-            promptEl.textContent = "What generation did it debut in? (Type a number 1-9):";
+    // Set prompt text based on chosen category
+    if (chosenType === 'name') {
+        promptEl.textContent = "What is the name of this Pokémon?";
+    } else if (chosenType === 'type') {
+        if (currentData.types.length > 1) {
+            promptEl.textContent = `Type both types (e.g., ${currentData.types.join(' ')}):`;
+        } else {
+            promptEl.textContent = "What is this Pokémon's type?";
         }
+    } else if (chosenType === 'ability') {
+        promptEl.textContent = "Name one of this Pokémon's abilities (regular or hidden):";
+    } else if (chosenType === 'generation') {
+        promptEl.textContent = "What generation did it debut in? (Type a number 1-9):";
+    }
 
+    isGameActive = true;
+
+    // Preload the *next* Pokémon in the background right after displaying this one
+    preloadNextPokemon();
+}
+
+async function preloadNextPokemon() {
+    try {
+        const randomId = getRandomId(1, 1025);
+        nextData = await fetchPokemonData(randomId);
     } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error preloading next Pokémon:", error);
+    }
+}
+
+// Initial game loader
+async function initGame() {
+    promptEl.textContent = "Loading Pokémon...";
+    try {
+        const randomId1 = getRandomId(1, 1025);
+        const randomId2 = getRandomId(1, 1025);
+        
+        // Load current and preload next simultaneously for the very first round
+        const firstData = await fetchPokemonData(randomId1);
+        nextData = await fetchPokemonData(randomId2);
+
+        displayPokemon(firstData);
+    } catch (error) {
+        console.error("Error initializing game:", error);
         promptEl.textContent = "Failed to load Pokémon. Try refreshing!";
     }
 }
 
-function checkAnswer() {
-    const userVal = inputEl.value.trim().toLowerCase();
-    let isCorrect = false;
+// Transition to the preloaded Pokémon instantly
+function loadNextRound() {
+    if (nextData) {
+        displayPokemon(nextData);
+    } else {
+        // Fallback just in case background preload failed
+        initGame();
+    }
+}
 
-    if (!userVal) return;
+function checkAnswer() {
+    if (!isGameActive) return;
+
+    const userVal = inputEl.value.trim().toLowerCase();
+
+    // Check if nothing was written
+    if (!userVal) {
+        feedbackEl.style.color = 'red';
+        feedbackEl.textContent = "You didn't submit an answer!";
+        return;
+    }
+
+    isGameActive = false; // Prevent double-submitting during timeouts
+    let isCorrect = false;
 
     switch (currentData.activeQuestionType) {
         case 'name':
@@ -93,7 +141,6 @@ function checkAnswer() {
             break;
             
         case 'type':
-            // Split user input by spaces or commas to handle dual types (order-independent)
             const userTypes = userVal.split(/[\s,]+/).filter(Boolean);
             if (currentData.types.length === userTypes.length && 
                 currentData.types.every(t => userTypes.includes(t)) &&
@@ -111,7 +158,7 @@ function checkAnswer() {
             break;
     }
 
-    // Format proper display for the correct answer on failure
+    // Format proper display for the correct answer
     let displayAnswer = '';
     if (currentData.activeQuestionType === 'name') {
         displayAnswer = currentData.name;
@@ -128,11 +175,13 @@ function checkAnswer() {
         feedbackEl.textContent = `Correct! It was ${currentData.name}.`;
         score++;
         scoreEl.textContent = score;
-        setTimeout(fetchNewPokemon, 2000);
+        setTimeout(loadNextRound, 2000);
     } else {
         feedbackEl.style.color = 'red';
-        feedbackEl.textContent = `Incorrect! The correct answer was: ${displayAnswer}`;
-        setTimeout(fetchNewPokemon, 2500);
+        score = 0; // Reset score on wrong answer
+        scoreEl.textContent = score;
+        feedbackEl.textContent = `Incorrect! Score reset to 0. The correct answer was: ${displayAnswer}`;
+        setTimeout(loadNextRound, 3000);
     }
 }
 
@@ -141,10 +190,10 @@ submitBtn.addEventListener('click', checkAnswer);
 
 inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-        e.preventDefault(); // Prevents default form behavior/newlines
+        e.preventDefault(); // Prevents newlines/form submits
         checkAnswer();
     }
 });
 
 // Run game on load
-fetchNewPokemon();
+initGame();
